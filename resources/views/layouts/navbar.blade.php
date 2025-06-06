@@ -1,7 +1,7 @@
-<nav class="bg-gradient-to-r from-pink-400 to-pink-600 shadow-lg">
+<nav class="navbar" style="color: #FCFCFD">
   <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-    <a href="{{ route('orders.index') }}" class="text-3xl font-extrabold text-white hover:text-pink-200 transition duration-300">
-      Solju
+    <a class="text-3xl font-extrabold text-black">
+      @yield('menu')
     </a>
 
     {{-- <ul class="hidden md:flex gap-10 items-center text-white font-medium">

@@ -6,6 +6,9 @@ use App\Models\Order;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use App\Models\OrderProduct;
+use Illuminate\Support\Facades\Storage;
+use App\Models\Product;
+
 
 
 class OrderController extends Controller
@@ -13,51 +16,56 @@ class OrderController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('search');
+        $perPage = $request->input('perPage', 5);
+
         $orders = Order::when($search, function ($query, $search) {
             return $query->where('customer_name', 'like', "%{$search}%");
-        })->paginate(10);
-    
-        return view('pages.orders.index', compact('orders', 'search'));
+        })
+        ->orderBy('updated_at', 'desc')
+        ->paginate($perPage)
+        ->appends(['search' => $search, 'perPage' => $perPage]);
+
+        return view('pages.orders.index', compact('orders', 'search', 'perPage'));
     }
-    
 
     public function create()
     {
-        return view('pages.orders.create');
+         $products = Product::all(); // Ambil semua produk
+        return view('pages.orders.create', compact('products'));    
     }
 
     public function store(Request $request)
-{
-    $request->validate([
-        'customer_name' => 'required|string|max:255',
-        'customer_address' => 'required|string',
-        'products' => 'required|array|min:1',
-        'products.*.name' => 'required|string',
-        'products.*.quantity' => 'required|integer|min:1',
-        'products.*.price' => 'required|numeric|min:0',
-    ]);
-
-    $order = Order::create([
-        'customer_name' => $request->customer_name,
-        'customer_address' => $request->customer_address,
-        'invoice_number' => 'INV/SOLJU/' . time(), // Tambahkan invoice number unik
-    ]);
-
-    foreach ($request->products as $product) {
-        OrderProduct::create([
-            'order_id' => $order->id,
-            'name' => $product['name'],
-            'quantity' => $product['quantity'],
-            'price' => $product['price'],
+    {
+        $request->validate([
+            'customer_name' => 'required|string|max:255',
+            'customer_address' => 'required|string',
+            'products' => 'required|array|min:1',
+            'products.*.name' => 'required|string',
+            'products.*.quantity' => 'required|integer|min:1',
+            'products.*.price' => 'required|numeric|min:0',
         ]);
-    }
 
-    return redirect()->route('orders.index')->with('success', 'Order berhasil dibuat!');
-}
+        $order = Order::create([
+            'customer_name' => $request->customer_name,
+            'customer_address' => $request->customer_address,
+            'invoice_number' => 'INV-' . time(),
+        ]);
+
+        foreach ($request->products as $product) {
+            OrderProduct::create([
+                'order_id' => $order->id,
+                'name' => $product['name'],
+                'quantity' => $product['quantity'],
+                'price' => $product['price'],
+            ]);
+        }
+
+        return redirect()->route('orders.index')->with('success', 'Order berhasil dibuat!');
+    }
 
     public function show(Order $order)
     {
-        $order->load('products'); // Memastikan relasi produk dimuat
+        $order->load('products');
         return view('pages.orders.show', compact('order'));
     }
 
@@ -68,7 +76,6 @@ class OrderController extends Controller
 
     public function update(Request $request, Order $order)
     {
-        // Validasi input
         $request->validate([
             'customer_name' => 'required|string',
             'customer_address' => 'required|string',
@@ -78,16 +85,13 @@ class OrderController extends Controller
             'products.*.price' => 'required|numeric|min:0',
         ]);
 
-        // Update data order utama
         $order->update([
             'customer_name' => $request->customer_name,
             'customer_address' => $request->customer_address,
         ]);
 
-        // Hapus produk lama yang terkait dengan order ini
         $order->orderProducts()->delete();
 
-        // Simpan produk baru
         foreach ($request->products as $productData) {
             $order->orderProducts()->create([
                 'name' => $productData['name'],
@@ -96,14 +100,13 @@ class OrderController extends Controller
             ]);
         }
 
-        // Redirect ke halaman daftar order dengan pesan sukses
-        return redirect()->route('orders.index')->with('success', 'Order updated successfully.');
+        return redirect()->route('orders.index')->with('success', 'Data telah di updata.');
     }
 
     public function destroy(Order $order)
     {
         $order->delete();
-        return redirect()->route('orders.index')->with('success', 'Order deleted successfully.');
+        return redirect()->route('orders.index')->with('success', 'Data telah dihapus.');
     }
 
     public function downloadInvoice(Order $order)
@@ -111,4 +114,52 @@ class OrderController extends Controller
         $pdf = Pdf::loadView('pages.invoices.download', compact('order'));
         return $pdf->download('Invoice'.$order->id.'.pdf');
     }
+
+    // Keuangan
+    public function showUpload($id)
+    {
+        $order = Order::with('orderProducts')->findOrFail($id);
+        $total = 0;
+        foreach ($order->orderProducts as $product) {
+            $total += $product->quantity * $product->price;
+        }
+
+        return view('pages.orders.upload_bukti', compact('order', 'total'));
+    }
+
+
+    public function storeUpload(Request $request, $id)
+    {
+        $request->validate([
+            'payment_proof' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
+
+        $order = Order::with('orderProducts')->findOrFail($id);
+
+        if ($request->hasFile('payment_proof')) {
+            $path = $request->file('payment_proof')->store('bukti', 'public');
+            $order->payment_proof = $path;
+            $order->save();
+        }
+
+        return redirect()->route('orders.index')
+        ->with('success', 'Bukti pembayaran berhasil diupload.');
+    }
+
+    public function showBukti(Order $order)
+    {
+        return view('pages.orders.lihat_bukti', compact('order'));
+    }
+
+
+    public function payment(Order $order)
+    {
+        $total = 0;
+        foreach ($order->orderProducts as $product) {
+            $total += $product->quantity * $product->price;
+        }
+
+        return view('pages.orders.upload_bukti', compact('order', 'total'));
+    }
+
 }

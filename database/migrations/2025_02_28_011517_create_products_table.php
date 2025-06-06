@@ -11,14 +11,14 @@ return new class extends Migration
      */
     public function up()
 {
-    Schema::create('order_products', function (Blueprint $table) {
-        $table->id();
-        $table->foreignId('order_id')->constrained()->onDelete('cascade');
-        $table->string('name');
-        $table->integer('quantity');
-        $table->decimal('price', 10, 2);
-        $table->timestamps();
-    });
+   Schema::create('products', function (Blueprint $table) {
+    $table->id();
+    $table->string('product_code'); // ✅ Tambahan: Kode Produk
+    $table->string('name'); 
+    $table->decimal('price', 10, 2);
+    $table->timestamps();
+});
+
 }
 
 public function down()
