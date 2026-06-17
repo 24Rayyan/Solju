@@ -9,8 +9,6 @@ use App\Models\OrderProduct;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Product;
 
-
-
 class OrderController extends Controller
 {
     public function index(Request $request)
@@ -19,7 +17,9 @@ class OrderController extends Controller
         $perPage = $request->input('perPage', 5);
 
         $orders = Order::when($search, function ($query, $search) {
-            return $query->where('customer_name', 'like', "%{$search}%");
+            // Menggunakan LOWER() agar pencarian nama di SQLite bersifat case-insensitive
+            $lowerSearch = strtolower($search);
+            return $query->whereRaw('LOWER(customer_name) LIKE ?', ["%{$lowerSearch}%"]);
         })
         ->orderBy('updated_at', 'desc')
         ->paginate($perPage)
@@ -127,7 +127,6 @@ class OrderController extends Controller
         return view('pages.orders.upload_bukti', compact('order', 'total'));
     }
 
-
     public function storeUpload(Request $request, $id)
     {
         $request->validate([
@@ -151,7 +150,6 @@ class OrderController extends Controller
         return view('pages.orders.lihat_bukti', compact('order'));
     }
 
-
     public function payment(Order $order)
     {
         $total = 0;
@@ -161,5 +159,4 @@ class OrderController extends Controller
 
         return view('pages.orders.upload_bukti', compact('order', 'total'));
     }
-
 }

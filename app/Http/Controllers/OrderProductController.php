@@ -49,7 +49,8 @@ class OrderProductController extends Controller
 
         $product->update($request->all());
 
-        return redirect()->route('produk.produk')->with('success', 'Produk berhasil diperbarui.');
+        // Disamakan menggunakan produk.index (sesuaikan dengan nama route aslimu)
+        return redirect()->route('produk.index')->with('success', 'Produk berhasil diperbarui.');
     }
 
     public function destroy($id)
@@ -57,6 +58,7 @@ class OrderProductController extends Controller
         $product = Product::findOrFail($id);
         $product->delete();
 
-        return redirect()->route('produk.produk')->with('success', 'Produk berhasil dihapus.');
+        // Disamakan menggunakan produk.index (sesuaikan dengan nama route aslimu)
+        return redirect()->route('produk.index')->with('success', 'Produk berhasil dihapus.');
     }
 }

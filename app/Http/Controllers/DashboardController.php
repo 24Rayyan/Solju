@@ -18,14 +18,12 @@ class DashboardController extends Controller
         switch ($filter) {
             case '24jam':
                 $startDate = $now->copy()->subDay();
+                // Menyesuaikan format waktu SQLite untuk pengelompokan per jam
                 $groupByFormat = '%Y-%m-%d %H:00';
                 break;
             case '7hari':
-                $startDate = $now->copy()->subDays(7);
-                $groupByFormat = '%Y-%m-%d';
-                break;
             case '30hari':
-                $startDate = $now->copy()->subDays(30);
+                $startDate = $filter === '7hari' ? $now->copy()->subDays(7) : $now->copy()->subDays(30);
                 $groupByFormat = '%Y-%m-%d';
                 break;
             case '12bulan':
@@ -85,8 +83,9 @@ class DashboardController extends Controller
             $percentageChange = (($currentIncome - $previousIncome) / $previousIncome) * 100;
         }
 
-        // Penjualan per waktu
-        $penjualan = OrderProduct::selectRaw("DATE_FORMAT(orders.created_at, '{$groupByFormat}') as period, SUM(order_products.quantity * order_products.price) as total")
+        // Penjualan per waktu (SUDAH DISESUAIKAN KE SQLITE)
+        // Menggunakan strftime('format', nama_kolom) menggantikan DATE_FORMAT()
+        $penjualan = OrderProduct::selectRaw("strftime('{$groupByFormat}', orders.created_at) as period, SUM(order_products.quantity * order_products.price) as total")
             ->join('orders', 'order_products.order_id', '=', 'orders.id')
             ->where('orders.created_at', '>=', $startDate)
             ->groupBy('period')
